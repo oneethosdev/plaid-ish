@@ -1,1 +1,1 @@
-{"compilerOptions":{"target":"ES2020","module":"ESNext","jsx":"react-jsx","strict":true,"esModuleInterop":true,"skipLibCheck":true,"forceConsistentCasingInFileNames":true,"baseUrl":"."},"include":["src"]}
+{"compilerOptions":{"target":"ES2020","module":"ESNext","moduleResolution":"bundler","jsx":"react-jsx","strict":true,"esModuleInterop":true,"skipLibCheck":true,"forceConsistentCasingInFileNames":true,"baseUrl":".","types":["vite/client","react","react-dom"]},"include":["src"]}

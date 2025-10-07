@@ -24,7 +24,7 @@ type Tx = {
 const api = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL as string });
 
 export default function Dashboard() {
-  const { getAccessTokenSilently } = useAuth0();
+  const { getAccessTokenSilently, user } = useAuth0();
   const [items, setItems] = useState<ItemWithAccounts[]>([]);
   const [transactions, setTransactions] = useState<Tx[]>([]);
 
@@ -74,10 +74,25 @@ export default function Dashboard() {
     return sums;
   }, [transactions]);
 
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+  }, []);
+
+  const displayName = useMemo(() => {
+    return (user?.given_name as string) || (user?.name as string) || 'there';
+  }, [user]);
+
+  const totalAccounts = useMemo(() => {
+    return items.reduce((sum, it) => sum + it.accounts.length, 0);
+  }, [items]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div className="text-xl font-medium">Good day</div>
+        <div className="text-xl font-medium">{greeting}, {displayName}</div>
         <button className="px-3 py-2 bg-black text-white rounded" onClick={createLink}>Connect Bank</button>
       </div>
 
@@ -96,34 +111,42 @@ export default function Dashboard() {
 
       <div className="border rounded p-4">
         <div className="font-medium mb-2">Accounts</div>
-        {items.map((it) => (
-          <div key={it.id} className="mb-4">
-            <div className="text-sm text-gray-600">{it.institutionName || 'Institution'}</div>
-            {it.accounts.map((a) => (
-              <div key={a.id} className="flex justify-between border-b py-2">
-                <div>
-                  <div className="font-medium">{a.name}</div>
-                  <div className="text-sm text-gray-600">{a.type}</div>
+        {totalAccounts === 0 ? (
+          <div className="text-sm text-gray-600">No accounts to display.</div>
+        ) : (
+          items.map((it) => (
+            <div key={it.id} className="mb-4">
+              <div className="text-sm text-gray-600">{it.institutionName || 'Institution'}</div>
+              {it.accounts.map((a) => (
+                <div key={a.id} className="flex justify-between border-b py-2">
+                  <div>
+                    <div className="font-medium">{a.name}</div>
+                    <div className="text-sm text-gray-600">{a.type}</div>
+                  </div>
+                    <div className="font-semibold">${a.balance.toFixed(2)}</div>
                 </div>
-                <div className="font-semibold">${a.balance.toFixed(2)}</div>
-              </div>
-            ))}
-          </div>
-        ))}
+              ))}
+            </div>
+          ))
+        )}
       </div>
 
       <div className="border rounded p-4">
         <div className="font-medium mb-2">Recent Transactions</div>
-        <div className="space-y-2">
-          {transactions.slice(0, 15).map((t, idx) => (
-            <div key={idx} className="flex justify-between border-b py-2">
-              <div>{t.name}</div>
-              <div className={t.amount < 0 ? 'text-green-600' : 'text-red-600'}>
-                {t.amount < 0 ? '+' : '-'}${Math.abs(t.amount).toFixed(2)}
+        {transactions.length === 0 ? (
+          <div className="text-sm text-gray-600">No transactions to display.</div>
+        ) : (
+          <div className="space-y-2">
+            {transactions.slice(0, 15).map((t, idx) => (
+              <div key={idx} className="flex justify-between border-b py-2">
+                <div>{t.name}</div>
+                <div className={t.amount < 0 ? 'text-green-600' : 'text-red-600'}>
+                  {t.amount < 0 ? '+' : '-'}${Math.abs(t.amount).toFixed(2)}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
