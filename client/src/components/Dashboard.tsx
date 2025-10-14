@@ -25,6 +25,7 @@ type ItemWithAccounts = {
     balance: number;
     available?: number | null;
   }>;
+  hasError?: boolean;
 };
 
 type Tx = {
@@ -140,6 +141,18 @@ export default function Dashboard() {
     });
     handler.open();
   }, [authPost, refresh]);
+
+  const triggerError = useCallback(async (itemId: string) => {
+    await authPost(`/plaid/item/${itemId}/trigger-error`);
+    alert('Triggered an error for this institution. Try Relink to repair.');
+    await refresh();
+  }, [authPost, refresh]);
+
+  const [openMenuItemId, setOpenMenuItemId] = useState<string | null>(null);
+  const toggleMenuFor = useCallback((itemId: string) => {
+    setOpenMenuItemId(prev => prev === itemId ? null : itemId);
+  }, []);
+  const closeMenu = useCallback(() => setOpenMenuItemId(null), []);
 
   useEffect(() => {
     refresh();
@@ -286,9 +299,25 @@ export default function Dashboard() {
                     return `${it.institutionName || 'Institution'} - ${formatted}`;
                   })()}
                 </div>
-                <div className="flex items-center gap-2">
-                  <button className="px-2 py-1 text-xs border rounded text-gray-700 hover:bg-gray-50" onClick={() => unlinkItem(it.id)}>Unlink</button>
-                  <button className="px-2 py-1 text-xs btn-primary" onClick={() => relinkItem(it.id)}>Relink</button>
+                <div className="relative">
+                  <button
+                    className="px-2 py-1 text-xl leading-none rounded hover:bg-gray-100 relative"
+                    aria-haspopup="menu"
+                    aria-expanded={openMenuItemId === it.id}
+                    onClick={() => toggleMenuFor(it.id)}
+                  >
+                    ⋯
+                    {it.hasError ? (
+                      <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-medium leading-none bg-red-600 text-white rounded-full">!</span>
+                    ) : null}
+                  </button>
+                  {openMenuItemId === it.id && (
+                    <div className="absolute right-0 mt-1 w-40 bg-white border rounded shadow z-10" role="menu">
+                      <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={() => { closeMenu(); relinkItem(it.id); }} role="menuitem">Relink</button>
+                      <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={() => { closeMenu(); unlinkItem(it.id); }} role="menuitem">Unlink</button>
+                      <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 text-red-600" onClick={() => { closeMenu(); triggerError(it.id); }} role="menuitem">Trigger error</button>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

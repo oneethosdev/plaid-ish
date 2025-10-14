@@ -36,7 +36,23 @@ router.get('/accounts', async (req, res, next) => {
   try {
     const user = (req as any).userRecord as { id: string };
     const items = await getItemsWithAccountsForUser(user.id);
-    res.json(items);
+    // Enrich items with hasError flag by checking Plaid item status
+    const itemsWithStatus = await Promise.all(items.map(async (it) => {
+      try {
+        const tokens = await getItemsWithAccessTokens(user.id);
+        const tokenRow = tokens.find(t => t.id === it.id);
+        let hasError = false;
+        if (tokenRow) {
+          const resp = await plaid.getItem(tokenRow.accessToken);
+          const error = resp?.item?.error;
+          hasError = Boolean(error);
+        }
+        return { ...it, hasError } as any;
+      } catch (_e) {
+        return { ...it, hasError: true } as any;
+      }
+    }));
+    res.json(itemsWithStatus);
   } catch (err) {
     next(err);
   }
@@ -97,6 +113,22 @@ router.post('/link/token/create/update', async (req, res, next) => {
     }
     const data = await plaid.createUpdateModeLinkToken({ userId: user.id, accessToken: item.accessToken });
     res.json(data);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/item/:itemId/trigger-error', async (req, res, next) => {
+  try {
+    const user = (req as any).userRecord as { id: string };
+    const { itemId } = req.params as { itemId: string };
+    const item = await findItemById(itemId);
+    if (!item || item.userId !== user.id) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+    // Sandbox: force ITEM_LOGIN_REQUIRED error state
+    await plaid.sandboxResetLogin(item.accessToken);
+    res.json({ ok: true });
   } catch (err) {
     next(err);
   }

@@ -99,5 +99,26 @@ export class PlaidClient {
     }));
     return data as { removed: boolean; request_id: string };
   }
+
+  async invalidateAccessToken(accessToken: string) {
+    const { data } = await this.http.post('/item/access_token/invalidate', this.authBody({
+      access_token: accessToken,
+    }));
+    return data as { new_access_token: string; request_id: string };
+  }
+
+  async getItem(accessToken: string) {
+    const { data } = await this.http.post('/item/get', this.authBody({
+      access_token: accessToken,
+    }));
+    return data as { item: any; status?: any };
+  }
+
+  async sandboxResetLogin(accessToken: string) {
+    const { data } = await this.http.post('/sandbox/item/reset_login', this.authBody({
+      access_token: accessToken,
+    }));
+    return data as { request_id: string };
+  }
 }
 

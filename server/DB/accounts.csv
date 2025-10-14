@@ -1,1 +1,8 @@
 id,itemId,plaidAccountId,name,type,balance,available
+"074ba27c-8eb4-4bd8-9cbb-8985691bf8ad","2b47aba9-f32b-4068-8755-71353757af49","p144wyzQV5uGz7qD3avPiqJmyaPydGupgoQaE","Plaid Checking","depository","110","100"
+"dc428dc0-c531-4900-8096-d9a7374a0ded","2b47aba9-f32b-4068-8755-71353757af49","oMaaEGreV5Sjrzl1BWaRHPz1jxRjp3to9qVEK","Plaid Saving","depository","210","200"
+"ecef92a4-0f1c-4595-acce-c083978e83b8","2b47aba9-f32b-4068-8755-71353757af49","g4qq9G8xVbiBe3vb4JmRh356G7aGdWfED87Wr","Plaid CD","depository","1000",""
+"0ff019b7-2fe0-4f13-b42a-9f883bb2b8d0","5e866ff3-a616-4fa9-9399-cb6217aa1eb9","lPk6LGGb6eSWbrwAMvdbFNQJDBVPP5uM4XwyM","Plaid Checking","depository","110","100"
+"a630a9e1-52be-4210-9d69-472dd32ba27f","5e866ff3-a616-4fa9-9399-cb6217aa1eb9","qZ3vEGGKvLU9PpDagdJPF587Gj1DDzfQEDmax","Plaid Saving","depository","210","200"
+"f011b07d-e9e1-4485-adf6-ae6e5828d233","5e866ff3-a616-4fa9-9399-cb6217aa1eb9","K7oJjKKbJ1SxNwbQrMzNCERneGDLL8U5yBZPr","Plaid CD","depository","1000",""
+"d99970af-4e75-40c3-bd67-536d24746ddb","5e866ff3-a616-4fa9-9399-cb6217aa1eb9","rMxvlGGrvpcKPJbN8ajPcX4D9lEppeuGQ5PxB","Plaid Credit Card","credit","410",""
