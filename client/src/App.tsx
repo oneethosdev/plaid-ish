@@ -3,9 +3,18 @@ import React from 'react';
 import Dashboard from './components/Dashboard';
 
 export default function App() {
-  const { isAuthenticated, loginWithRedirect, logout, error } = useAuth0();
+  const { isAuthenticated, loginWithRedirect, logout, error, isLoading } = useAuth0();
 
-  console.log('isAuthenticated', isAuthenticated);
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="p-8 card space-y-4 text-center">
+          <h1 className="text-2xl font-semibold">Plaid-ish</h1>
+          <p className="text-gray-500">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (error) {
     return (

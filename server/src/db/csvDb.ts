@@ -152,6 +152,11 @@ export async function getItemsWithAccessTokens(userId: string): Promise<Array<{ 
   return (items.filter(i => i.userId === userId) as Array<{ id: string; accessToken: string }>);
 }
 
+export async function getItemsWithAccessTokensAndNames(userId: string): Promise<Array<{ id: string; accessToken: string; institutionName?: string }>> {
+  const items = await readAll('items');
+  return (items.filter(i => i.userId === userId).map(i => ({ id: i.id, accessToken: i.accessToken, institutionName: i.institutionName })) as Array<{ id: string; accessToken: string; institutionName?: string }>);
+}
+
 export async function appendWebhookLog(type: string, body: any): Promise<void> {
   await appendRow('webhookLogs', { id: uuid(), type, body: JSON.stringify(body), timestamp: new Date().toISOString() });
 }

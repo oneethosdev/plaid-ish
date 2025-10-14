@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { PlaidClient } from '../plaid/PlaidClient';
-import { addAccountsForItem, createPlaidItem, getItemsWithAccountsForUser, getItemsWithAccessTokens, findItemById, deleteItemAndAccounts } from '../db/csvDb';
+import { addAccountsForItem, createPlaidItem, getItemsWithAccountsForUser, getItemsWithAccessTokens, findItemById, deleteItemAndAccounts, getItemsWithAccessTokensAndNames } from '../db/csvDb';
 
 const router = Router();
 const plaid = new PlaidClient();
@@ -23,9 +23,6 @@ router.post('/item/public_token/exchange', async (req, res, next) => {
     const { public_token, institution_name } = req.body as { public_token: string; institution_name?: string };
     const { access_token } = await plaid.exchangePublicToken(public_token);
     const item = await createPlaidItem(user.id, access_token, institution_name);
-    // Fetch and store accounts
-    const accountsResp = await plaid.getAccounts(access_token);
-    await addAccountsForItem(item.id, accountsResp.accounts);
     res.json({ itemId: item.id });
   } catch (err) {
     next(err);
@@ -35,24 +32,29 @@ router.post('/item/public_token/exchange', async (req, res, next) => {
 router.get('/accounts', async (req, res, next) => {
   try {
     const user = (req as any).userRecord as { id: string };
-    const items = await getItemsWithAccountsForUser(user.id);
-    // Enrich items with hasError flag by checking Plaid item status
-    const itemsWithStatus = await Promise.all(items.map(async (it) => {
+    const items = await getItemsWithAccessTokensAndNames(user.id);
+    const enriched = await Promise.all(items.map(async (it) => {
       try {
-        const tokens = await getItemsWithAccessTokens(user.id);
-        const tokenRow = tokens.find(t => t.id === it.id);
-        let hasError = false;
-        if (tokenRow) {
-          const resp = await plaid.getItem(tokenRow.accessToken);
-          const error = resp?.item?.error;
-          hasError = Boolean(error);
+        const statusResp = await plaid.getItem(it.accessToken);
+        const hasError = Boolean(statusResp?.item?.error);
+        if (hasError) {
+          return { id: it.id, institutionName: it.institutionName, accounts: [], hasError };
         }
-        return { ...it, hasError } as any;
+        const accountsResp = await plaid.getAccounts(it.accessToken);
+        const accounts = (accountsResp.accounts || []).map((a: any) => ({
+          id: a.account_id,
+          plaidAccountId: a.account_id,
+          name: a.name || a.official_name || 'Account',
+          type: a.type,
+          balance: a.balances.current ?? 0,
+          available: a.balances.available ?? null,
+        }));
+        return { id: it.id, institutionName: it.institutionName, accounts, hasError };
       } catch (_e) {
-        return { ...it, hasError: true } as any;
+        return { id: it.id, institutionName: it.institutionName, accounts: [], hasError: true };
       }
     }));
-    res.json(itemsWithStatus);
+    res.json(enriched);
   } catch (err) {
     next(err);
   }
@@ -74,8 +76,12 @@ router.get('/transactions', async (req, res, next) => {
       if (offset) options.offset = parseInt(offset, 10);
       if (include_pfc) options.include_personal_finance_category = include_pfc === 'true';
       if (include_original_description) options.include_original_description = include_original_description === 'true';
-      const resp = await plaid.getTransactions(item.accessToken, start, end, options);
-      allTxs.push(...resp.transactions);
+      try {
+        const resp = await plaid.getTransactions(item.accessToken, start, end, options);
+        allTxs.push(...resp.transactions);
+      } catch (_e) {
+        console.error('Error getting transactions for item', item.id, _e);
+      }
     }
     res.json({ transactions: allTxs });
   } catch (err) {

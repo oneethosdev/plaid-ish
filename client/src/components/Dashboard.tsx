@@ -66,6 +66,7 @@ export default function Dashboard() {
   const refresh = useCallback(async (opts?: { start?: string; end?: string; accountId?: string }) => {
     const itemsResp = await authGet('/plaid/accounts');
     setItems(itemsResp.data);
+    console.log('itemsResp', itemsResp.data);
     const now = new Date();
     const defaultEnd = now.toISOString().slice(0, 10);
     const startDateObj = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
@@ -190,10 +191,6 @@ export default function Dashboard() {
     return (user?.given_name as string) || (user?.name as string) || 'there';
   }, [user]);
 
-  const totalAccounts = useMemo(() => {
-    return items.reduce((sum, it) => sum + it.accounts.length, 0);
-  }, [items]);
-
   const computeAccountSignedBalance = useCallback((type: string, balance: number) => {
     const t = type.toLowerCase();
     // Treat liabilities (credit, loan) as negative, depository/investment as positive
@@ -286,13 +283,13 @@ export default function Dashboard() {
           <div className="font-medium text-primary-700">Accounts</div>
           <button className="px-3 py-2 btn-primary" onClick={createLink}>Link More Accounts</button>
         </div>
-        {totalAccounts === 0 ? (
+        {items.length === 0 ? (
           <div className="text-sm text-gray-600">No accounts to display.</div>
         ) : (
           items.map((it) => (
             <div key={it.id} className="mb-4">
               <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-                <div>
+                <div className={it.hasError ? 'text-red-600' : undefined}>
                   {(() => {
                     const instTotal = it.accounts.reduce((acc, a) => acc + computeAccountSignedBalance(a.type, Number(a.balance) || 0), 0);
                     const formatted = `${instTotal < 0 ? '-' : ''}$${Math.abs(instTotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
