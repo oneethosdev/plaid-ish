@@ -19,6 +19,7 @@ type ItemWithAccounts = {
   institutionName?: string | null;
   accounts: Array<{
     id: string;
+    plaidAccountId?: string;
     name: string;
     type: string;
     balance: number;
@@ -32,6 +33,7 @@ type Tx = {
   amount: number;
   date: string;
   pending?: boolean;
+  logo_url?: string;
 };
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL as string });
@@ -224,7 +226,7 @@ export default function Dashboard() {
               <div className="text-sm text-gray-600 mb-2">{it.institutionName || 'Institution'}</div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {it.accounts.map((a) => (
-                  <div key={a.id} className="card p-4 border-primary-200 hover:border-primary-300 transition">
+                  <div key={a.id} className="card p-4 border-primary-200 hover:border-primary-300 hover:bg-primary-50 transition">
                     <div className="flex items-start justify-between">
                       <div>
                         <div className="font-medium">{a.name}</div>
@@ -262,7 +264,7 @@ export default function Dashboard() {
             <label className="block text-xs text-gray-600 mb-1">Accounts</label>
             <select multiple value={selectedAccountIds} onChange={(e) => setSelectedAccountIds(Array.from(e.target.selectedOptions).map(o => o.value))} className="w-full border rounded px-2 py-1 h-[34px] md:h-[60px]">
               {items.flatMap(i => i.accounts).map(a => (
-                <option key={a.id} value={a.id}>{a.name}</option>
+                <option key={a.id} value={a.plaidAccountId}>{a.name}</option>
               ))}
             </select>
           </div>
@@ -302,6 +304,11 @@ export default function Dashboard() {
                 <div key={`${currentPage}-${idx}`} className="flex justify-between border-b py-2">
                   <div className="flex flex-row gap-2 items-center">
                     <div className="text-xs text-gray-600">{t.date}</div>
+                    {t.logo_url ? (
+                      <img src={t.logo_url} alt={t.name} className="w-8 h-8 rounded-full" />
+                    ) : (
+                      <div className="w-8 h-8 bg-gray-200 rounded-full"></div>
+                    )}
                     <div className="text-sm font-medium">{t.name}</div>
                   </div>
                   <div className={t.amount < 0 ? 'text-green-600' : 'text-red-600'}>

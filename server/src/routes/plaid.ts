@@ -45,18 +45,21 @@ router.get('/accounts', async (req, res, next) => {
 router.get('/transactions', async (req, res, next) => {
   try {
     const user = (req as any).userRecord as { id: string };
-    const { start, end, account_ids } = req.query as { start?: string; end?: string; account_ids?: string };
+    const { start, end, account_ids, count, offset, include_pfc, include_original_description } = req.query as {
+      start?: string; end?: string; account_ids?: string; count?: string; offset?: string; include_pfc?: string; include_original_description?: string;
+    };
     const items = await getItemsWithAccessTokens(user.id);
     const allTxs: any[] = [];
     for (const item of items) {
       if (!start || !end) continue;
-      const resp = await plaid.getTransactions(item.accessToken, start, end);
-      let txs = resp.transactions;
-      if (account_ids) {
-        const ids = account_ids.split(',');
-        txs = txs.filter(t => ids.includes(t.account_id));
-      }
-      allTxs.push(...txs);
+      const options: any = {};
+      if (account_ids) options.account_ids = account_ids.split(',');
+      if (count) options.count = parseInt(count, 10);
+      if (offset) options.offset = parseInt(offset, 10);
+      if (include_pfc) options.include_personal_finance_category = include_pfc === 'true';
+      if (include_original_description) options.include_original_description = include_original_description === 'true';
+      const resp = await plaid.getTransactions(item.accessToken, start, end, options);
+      allTxs.push(...resp.transactions);
     }
     res.json({ transactions: allTxs });
   } catch (err) {

@@ -37,17 +37,31 @@ export class PlaidClient {
     return data as { access_token: string; item_id: string };
   }
 
-  async getAccounts(accessToken: string) {
-    const { data } = await this.http.post('/accounts/get', this.authBody({ access_token: accessToken }));
+  async getAccounts(accessToken: string, options?: { account_ids?: string[] }) {
+    const { data } = await this.http.post('/accounts/get', this.authBody({
+      access_token: accessToken,
+      options: options || undefined,
+    }));
     return data as { accounts: any[]; item: any; request_id: string };
   }
 
-  async getTransactions(accessToken: string, startDate: string, endDate: string) {
+  async getTransactions(
+    accessToken: string,
+    startDate: string,
+    endDate: string,
+    options?: {
+      account_ids?: string[];
+      count?: number;
+      offset?: number;
+      include_personal_finance_category?: boolean;
+      include_original_description?: boolean;
+    }
+  ) {
     const { data } = await this.http.post('/transactions/get', this.authBody({
       access_token: accessToken,
       start_date: startDate,
       end_date: endDate,
-      options: { count: 100 }
+      options: options || undefined,
     }));
     return data as { transactions: any[]; accounts: any[]; total_transactions: number };
   }
