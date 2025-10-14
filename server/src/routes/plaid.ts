@@ -89,6 +89,46 @@ router.get('/transactions', async (req, res, next) => {
   }
 });
 
+router.get('/summary', async (req, res, next) => {
+  try {
+    const user = (req as any).userRecord as { id: string };
+    const items = await getItemsWithAccessTokens(user.id);
+
+    const now = new Date();
+    const thisStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+    const thisEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+    const lastStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastEndDate = new Date(now.getFullYear(), now.getMonth(), 0);
+    const lastStart = lastStartDate.toISOString().slice(0, 10);
+    const lastEnd = lastEndDate.toISOString().slice(0, 10);
+
+    const sums = { thisIn: 0, thisOut: 0, lastIn: 0, lastOut: 0 } as { thisIn: number; thisOut: number; lastIn: number; lastOut: number };
+
+    for (const item of items) {
+      try {
+        const thisResp = await plaid.getTransactions(item.accessToken, thisStart, thisEnd);
+        for (const t of thisResp.transactions || []) {
+          if (t.amount < 0) sums.thisIn += Math.abs(t.amount); else sums.thisOut += t.amount;
+        }
+      } catch (_e) {
+        // ignore item errors for this aggregation
+      }
+      try {
+        const lastResp = await plaid.getTransactions(item.accessToken, lastStart, lastEnd);
+        for (const t of lastResp.transactions || []) {
+          if (t.amount < 0) sums.lastIn += Math.abs(t.amount); else sums.lastOut += t.amount;
+        }
+      } catch (_e) {
+        // ignore item errors for this aggregation
+      }
+    }
+
+    res.json(sums);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Note: webhook route should be mounted unprotected in server index, not here
 
 router.post('/item/:itemId/unlink', async (req, res, next) => {

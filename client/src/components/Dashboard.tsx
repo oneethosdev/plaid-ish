@@ -46,6 +46,8 @@ export default function Dashboard() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const PAGE_SIZE = 10;
 
+  const [summary, setSummary] = useState<{ thisIn: number; thisOut: number; lastIn: number; lastOut: number }>({ thisIn: 0, thisOut: 0, lastIn: 0, lastOut: 0 });
+
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
@@ -67,6 +69,13 @@ export default function Dashboard() {
     const itemsResp = await authGet('/plaid/accounts');
     setItems(itemsResp.data);
     console.log('itemsResp', itemsResp.data);
+    // Fetch monthly summary separately from transactions
+    try {
+      const summaryResp = await authGet('/plaid/summary');
+      setSummary(summaryResp.data || { thisIn: 0, thisOut: 0, lastIn: 0, lastOut: 0 });
+    } catch (_e) {
+      setSummary({ thisIn: 0, thisOut: 0, lastIn: 0, lastOut: 0 });
+    }
     const now = new Date();
     const defaultEnd = now.toISOString().slice(0, 10);
     const startDateObj = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
@@ -163,23 +172,6 @@ export default function Dashboard() {
     setCurrentPage(1);
   }, [transactions]);
 
-  const monthSums = useMemo(() => {
-    const thisMonth = new Date().toISOString().slice(0, 7);
-    const lastMonthDate = new Date();
-    lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
-    const lastMonth = lastMonthDate.toISOString().slice(0, 7);
-    const sums = { thisIn: 0, thisOut: 0, lastIn: 0, lastOut: 0 };
-    for (const t of transactions) {
-      const month = t.date.slice(0, 7);
-      if (month === thisMonth) {
-        if (t.amount < 0) sums.thisIn += Math.abs(t.amount); else sums.thisOut += t.amount;
-      } else if (month === lastMonth) {
-        if (t.amount < 0) sums.lastIn += Math.abs(t.amount); else sums.lastOut += t.amount;
-      }
-    }
-    return sums;
-  }, [transactions]);
-
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good morning';
@@ -267,13 +259,13 @@ export default function Dashboard() {
         </div>
         <div className="card p-4 md:col-span-1">
           <div className="font-medium mb-2 text-primary-700">This Month’s Breakdown</div>
-          <div>Money In: ${monthSums.thisIn.toFixed(2)}</div>
-          <div>Money Out: ${monthSums.thisOut.toFixed(2)}</div>
+          <div>Money In: ${summary.thisIn.toFixed(2)}</div>
+          <div>Money Out: ${summary.thisOut.toFixed(2)}</div>
         </div>
         <div className="card p-4 md:col-span-1">
           <div className="font-medium mb-2 text-primary-700">Last Month’s Breakdown</div>
-          <div>Money In: ${monthSums.lastIn.toFixed(2)}</div>
-          <div>Money Out: ${monthSums.lastOut.toFixed(2)}</div>
+          <div>Money In: ${summary.lastIn.toFixed(2)}</div>
+          <div>Money Out: ${summary.lastOut.toFixed(2)}</div>
         </div>
       </div>
 
