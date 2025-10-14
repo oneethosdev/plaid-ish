@@ -2,3 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-primary: 133 187 101; /* #85BB65 */
+}
+
+/* Simple theme helpers */
+.btn-primary {
+  @apply bg-primary-600 hover:bg-primary-700 text-white rounded;
+}
+.badge-primary {
+  @apply text-primary-800 bg-primary-100 border border-primary-200 rounded px-2 py-0.5 text-xs;
+}
+.card {
+  @apply rounded-lg border shadow-sm bg-white;
+}
+
