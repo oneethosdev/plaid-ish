@@ -47,7 +47,7 @@ export default function Dashboard() {
 
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
-  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [queryText, setQueryText] = useState<string>('');
   const [pendingOnly, setPendingOnly] = useState<boolean>(false);
   const [flow, setFlow] = useState<'all' | 'credits' | 'debits'>('all');
@@ -62,7 +62,7 @@ export default function Dashboard() {
     return api.post(url, body, { headers: { Authorization: `Bearer ${token}` } });
   }, [getAccessTokenSilently]);
 
-  const refresh = useCallback(async (opts?: { start?: string; end?: string; accountIds?: string[] }) => {
+  const refresh = useCallback(async (opts?: { start?: string; end?: string; accountId?: string }) => {
     const itemsResp = await authGet('/plaid/accounts');
     setItems(itemsResp.data);
     const now = new Date();
@@ -71,18 +71,18 @@ export default function Dashboard() {
     const defaultStart = startDateObj.toISOString().slice(0, 10);
     const s = opts?.start || startDate || defaultStart;
     const e = opts?.end || endDate || defaultEnd;
-    const ids = opts?.accountIds || selectedAccountIds;
+    const id = opts?.accountId ?? selectedAccountId;
     const params = new URLSearchParams({ start: s, end: e });
-    if (ids && ids.length) params.set('account_ids', ids.join(','));
+    if (id) params.set('account_ids', id);
     const txResp = await authGet(`/plaid/transactions?${params.toString()}`);
     setTransactions(txResp.data.transactions || []);
     setStartDate(s);
     setEndDate(e);
-  }, [authGet, startDate, endDate, selectedAccountIds]);
+  }, [authGet, startDate, endDate, selectedAccountId]);
 
 
   const resetFilters = useCallback(() => {
-    setSelectedAccountIds([]);
+    setSelectedAccountId('');
     setStartDate('');
     setEndDate('');
     setQueryText('');
@@ -154,6 +154,23 @@ export default function Dashboard() {
     return items.reduce((sum, it) => sum + it.accounts.length, 0);
   }, [items]);
 
+  const computeAccountSignedBalance = useCallback((type: string, balance: number) => {
+    const t = type.toLowerCase();
+    // Treat liabilities (credit, loan) as negative, depository/investment as positive
+    if (t.includes('credit') || t.includes('loan') || t.includes('liability')) return -Math.abs(balance);
+    return balance;
+  }, []);
+
+  const totalBalanceAllInstitutions = useMemo(() => {
+    let sum = 0;
+    for (const it of items) {
+      for (const a of it.accounts) {
+        sum += computeAccountSignedBalance(a.type, Number(a.balance) || 0);
+      }
+    }
+    return sum;
+  }, [items, computeAccountSignedBalance]);
+
   const filteredTransactions = useMemo(() => {
     let list = transactions;
     if (queryText.trim()) {
@@ -165,9 +182,9 @@ export default function Dashboard() {
     }
     if (flow === 'credits') list = list.filter(t => t.amount < 0);
     if (flow === 'debits') list = list.filter(t => t.amount > 0);
-    if (selectedAccountIds.length) list = list.filter(t => selectedAccountIds.includes(t.account_id));
+    if (selectedAccountId) list = list.filter(t => t.account_id === selectedAccountId);
     return list;
-  }, [transactions, queryText, pendingOnly, flow, selectedAccountIds]);
+  }, [transactions, queryText, pendingOnly, flow, selectedAccountId]);
 
   const totalPages = useMemo(() => {
     return Math.max(1, Math.ceil(filteredTransactions.length / pageSize));
@@ -203,13 +220,19 @@ export default function Dashboard() {
         <button className="px-3 py-2 btn-primary" onClick={createLink}>Connect Bank</button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="card p-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="card p-4 md:col-span-1">
+          <div className="font-medium mb-2 text-primary-700">Total Balance</div>
+          <div className={`text-2xl font-semibold ${totalBalanceAllInstitutions >= 0 ? 'text-primary-700' : 'text-red-600'}`}>
+            ${Math.abs(totalBalanceAllInstitutions).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+        </div>
+        <div className="card p-4 md:col-span-1">
           <div className="font-medium mb-2 text-primary-700">This Month’s Breakdown</div>
           <div>Money In: ${monthSums.thisIn.toFixed(2)}</div>
           <div>Money Out: ${monthSums.thisOut.toFixed(2)}</div>
         </div>
-        <div className="card p-4">
+        <div className="card p-4 md:col-span-1">
           <div className="font-medium mb-2 text-primary-700">Last Month’s Breakdown</div>
           <div>Money In: ${monthSums.lastIn.toFixed(2)}</div>
           <div>Money Out: ${monthSums.lastOut.toFixed(2)}</div>
@@ -223,26 +246,39 @@ export default function Dashboard() {
         ) : (
           items.map((it) => (
             <div key={it.id} className="mb-4">
-              <div className="text-sm text-gray-600 mb-2">{it.institutionName || 'Institution'}</div>
+              <div className="text-sm text-gray-600 mb-2">
+                {(() => {
+                  const instTotal = it.accounts.reduce((acc, a) => acc + computeAccountSignedBalance(a.type, Number(a.balance) || 0), 0);
+                  const formatted = `${instTotal < 0 ? '-' : ''}$${Math.abs(instTotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                  return `${it.institutionName || 'Institution'} - ${formatted}`;
+                })()}
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {it.accounts.map((a) => (
-                  <div key={a.id} className="card p-4 border-primary-200 hover:border-primary-300 hover:bg-primary-50 transition">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="font-medium">{a.name}</div>
-                        <div className="mt-1 badge-primary inline-block">{a.type}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-semibold text-primary-700">
-                          ${Number(a.balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {it.accounts.map((a) => {
+                  const signed = computeAccountSignedBalance(a.type, Number(a.balance) || 0);
+                  const isNegative = signed < 0;
+                  return (
+                    <div
+                      key={a.id}
+                      className={`card p-4 transition ${isNegative ? 'border-red-300 bg-red-50 hover:border-red-400 hover:bg-red-50' : 'border-primary-200 hover:border-primary-300 hover:bg-primary-50'}`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="font-medium">{a.name}</div>
+                          <div className="mt-1 badge-primary inline-block">{a.type}</div>
                         </div>
-                        {a.available !== undefined && a.available !== null && (
-                          <div className="text-xs text-gray-500">Avail: ${Number(a.available || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                        )}
+                        <div className="text-right">
+                          <div className={`font-semibold ${isNegative ? 'text-red-600' : 'text-primary-700'}`}>
+                            {isNegative ? '-' : ''}${Math.abs(signed).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </div>
+                          {a.available !== undefined && a.available !== null && (
+                            <div className="text-xs text-gray-500">Avail: ${Number(a.available || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))
@@ -262,9 +298,10 @@ export default function Dashboard() {
           </div>
           <div>
             <label className="block text-xs text-gray-600 mb-1">Accounts</label>
-            <select multiple value={selectedAccountIds} onChange={(e) => setSelectedAccountIds(Array.from(e.target.selectedOptions).map(o => o.value))} className="w-full border rounded px-2 py-1 h-[34px] md:h-[60px]">
+            <select value={selectedAccountId} onChange={(e) => setSelectedAccountId(e.target.value)} className="w-full border rounded px-2 py-1 h-[34px]">
+              <option value="">All accounts</option>
               {items.flatMap(i => i.accounts).map(a => (
-                <option key={a.id} value={a.plaidAccountId}>{a.name}</option>
+                <option key={a.id} value={a.plaidAccountId || ''}>{a.name}</option>
               ))}
             </select>
           </div>
@@ -287,8 +324,7 @@ export default function Dashboard() {
             </label>
             <button className="ml-auto px-3 py-2 btn-primary" onClick={() => {
               setCurrentPage(1);
-              const ids = selectedAccountIds.length ? selectedAccountIds : [];
-              refresh({ start: startDate, end: endDate, accountIds: ids });
+              refresh({ start: startDate, end: endDate, accountId: selectedAccountId });
             }}>Apply</button>
             <button className="px-3 py-1 text-xs border rounded text-gray-600 hover:bg-gray-50" onClick={() => {
               resetFilters();

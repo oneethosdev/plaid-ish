@@ -9,8 +9,8 @@ export default function App() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="p-8 border rounded-lg space-y-4 text-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="p-8 card space-y-4 text-center">
           <h1 className="text-2xl font-semibold">Plaid-ish</h1>
           <p className="text-gray-500">{error.message}</p>
         </div>
@@ -20,11 +20,11 @@ export default function App() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="p-8 border rounded-lg space-y-4 text-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="p-8 card space-y-4 text-center">
           <h1 className="text-2xl font-semibold">Plaid-ish</h1>
           <button
-            className="px-4 py-2 bg-black text-white rounded"
+            className="px-4 py-2 btn-primary"
             onClick={() => loginWithRedirect()}
           >
             Log in with Auth0
@@ -35,7 +35,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen p-6">
+    <div className="min-h-screen p-6 bg-gray-50">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold">Dashboard</h1>
         <button className="px-3 py-2 border rounded" onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}>
