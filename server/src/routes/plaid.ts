@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { PlaidClient } from '../plaid/PlaidClient';
-import { addAccountsForItem, createPlaidItem, getItemsWithAccountsForUser, getItemsWithAccessTokens } from '../db/csvDb';
+import { addAccountsForItem, createPlaidItem, getItemsWithAccountsForUser, getItemsWithAccessTokens, findItemById, deleteItemAndAccounts } from '../db/csvDb';
 
 const router = Router();
 const plaid = new PlaidClient();
@@ -68,6 +68,39 @@ router.get('/transactions', async (req, res, next) => {
 });
 
 // Note: webhook route should be mounted unprotected in server index, not here
+
+router.post('/item/:itemId/unlink', async (req, res, next) => {
+  try {
+    const user = (req as any).userRecord as { id: string };
+    const { itemId } = req.params as { itemId: string };
+    const item = await findItemById(itemId);
+    if (!item || item.userId !== user.id) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+    // Remove at Plaid first
+    await plaid.removeItem(item.accessToken);
+    // Remove locally
+    await deleteItemAndAccounts(itemId);
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/link/token/create/update', async (req, res, next) => {
+  try {
+    const user = (req as any).userRecord as { id: string };
+    const { itemId } = req.body as { itemId: string };
+    const item = await findItemById(itemId);
+    if (!item || item.userId !== user.id) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+    const data = await plaid.createUpdateModeLinkToken({ userId: user.id, accessToken: item.accessToken });
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+});
 
 export default router;
 

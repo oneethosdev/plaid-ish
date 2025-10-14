@@ -156,3 +156,27 @@ export async function appendWebhookLog(type: string, body: any): Promise<void> {
   await appendRow('webhookLogs', { id: uuid(), type, body: JSON.stringify(body), timestamp: new Date().toISOString() });
 }
 
+export async function findItemById(itemId: string): Promise<PlaidItemRow | undefined> {
+  const items = await readAll('items');
+  return items.find(i => i.id === itemId) as PlaidItemRow | undefined;
+}
+
+export async function deleteItemAndAccounts(itemId: string): Promise<void> {
+  const [items, accounts, transactions] = await Promise.all([
+    readAll('items'),
+    readAll('accounts'),
+    readAll('transactions'),
+  ]);
+
+  const remainingItems = items.filter(i => i.id !== itemId);
+  const accountsToDelete = (accounts.filter(a => a.itemId === itemId) as AccountRow[]).map(a => a.id);
+  const remainingAccounts = accounts.filter(a => a.itemId !== itemId);
+  const remainingTransactions = transactions.filter(t => !accountsToDelete.includes(t.accountId));
+
+  await Promise.all([
+    writeAll('items', remainingItems),
+    writeAll('accounts', remainingAccounts),
+    writeAll('transactions', remainingTransactions),
+  ]);
+}
+

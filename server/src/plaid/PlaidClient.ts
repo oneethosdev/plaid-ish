@@ -30,6 +30,18 @@ export class PlaidClient {
     return data as { link_token: string; expiration: string };
   }
 
+  async createUpdateModeLinkToken({ userId, accessToken }: { userId: string; accessToken: string }) {
+    const { data } = await this.http.post('/link/token/create', this.authBody({
+      user: { client_user_id: userId },
+      client_name: 'Plaid-ish',
+      country_codes: ['US'],
+      language: 'en',
+      webhook: env.plaid.webhookUrl,
+      access_token: accessToken,
+    }));
+    return data as { link_token: string; expiration: string };
+  }
+
   async exchangePublicToken(publicToken: string) {
     const { data } = await this.http.post('/item/public_token/exchange', this.authBody({
       public_token: publicToken,
@@ -79,6 +91,13 @@ export class PlaidClient {
       next_cursor: string;
       has_more: boolean;
     };
+  }
+
+  async removeItem(accessToken: string) {
+    const { data } = await this.http.post('/item/remove', this.authBody({
+      access_token: accessToken,
+    }));
+    return data as { removed: boolean; request_id: string };
   }
 }
 

@@ -114,6 +114,33 @@ export default function Dashboard() {
     handler.open();
   }, [authPost, getAccessTokenSilently, refresh]);
 
+  const unlinkItem = useCallback(async (itemId: string) => {
+    const ok = window.confirm('Are you sure you want to unlink this institution? This will remove all its accounts.');
+    if (!ok) return;
+    await authPost(`/plaid/item/${itemId}/unlink`);
+    await refresh();
+  }, [authPost, refresh]);
+
+  const relinkItem = useCallback(async (itemId: string) => {
+    const { data } = await authPost('/plaid/link/token/create/update', { itemId });
+    const linkToken = (data as any).link_token as string;
+
+    const win = window as any;
+    if (!win.Plaid || !win.Plaid.create) {
+      alert('Plaid Link failed to load');
+      return;
+    }
+
+    const handler = win.Plaid.create({
+      token: linkToken,
+      onSuccess: async () => {
+        await refresh();
+      },
+      onExit: () => {},
+    });
+    handler.open();
+  }, [authPost, refresh]);
+
   useEffect(() => {
     refresh();
   }, [refresh]);
@@ -218,7 +245,6 @@ export default function Dashboard() {
       {/** Greeting Header */}
       <div className="flex items-center justify-between">
         <div className="text-xl font-medium">{greeting}, {displayName}</div>
-        <button className="px-3 py-2 btn-primary" onClick={createLink}>Connect Bank</button>
       </div>
 
       {/** Summary Cards */}
@@ -243,18 +269,27 @@ export default function Dashboard() {
 
       {/** Accounts List */}
       <div className="card p-4">
-        <div className="font-medium mb-2 text-primary-700">Accounts</div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="font-medium text-primary-700">Accounts</div>
+          <button className="px-3 py-2 btn-primary" onClick={createLink}>Link More Accounts</button>
+        </div>
         {totalAccounts === 0 ? (
           <div className="text-sm text-gray-600">No accounts to display.</div>
         ) : (
           items.map((it) => (
             <div key={it.id} className="mb-4">
-              <div className="text-sm text-gray-600 mb-2">
-                {(() => {
-                  const instTotal = it.accounts.reduce((acc, a) => acc + computeAccountSignedBalance(a.type, Number(a.balance) || 0), 0);
-                  const formatted = `${instTotal < 0 ? '-' : ''}$${Math.abs(instTotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                  return `${it.institutionName || 'Institution'} - ${formatted}`;
-                })()}
+              <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
+                <div>
+                  {(() => {
+                    const instTotal = it.accounts.reduce((acc, a) => acc + computeAccountSignedBalance(a.type, Number(a.balance) || 0), 0);
+                    const formatted = `${instTotal < 0 ? '-' : ''}$${Math.abs(instTotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                    return `${it.institutionName || 'Institution'} - ${formatted}`;
+                  })()}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button className="px-2 py-1 text-xs border rounded text-gray-700 hover:bg-gray-50" onClick={() => unlinkItem(it.id)}>Unlink</button>
+                  <button className="px-2 py-1 text-xs btn-primary" onClick={() => relinkItem(it.id)}>Relink</button>
+                </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {it.accounts.map((a) => {
