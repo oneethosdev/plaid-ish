@@ -2,6 +2,18 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import axios from 'axios';
 
+declare global {
+  interface Window {
+    Plaid?: {
+      create: (options: {
+        token: string;
+        onSuccess: (public_token: string, metadata: { institution?: { name?: string } }) => void;
+        onExit?: () => void;
+      }) => { open: () => void };
+    };
+  }
+}
+
 type ItemWithAccounts = {
   id: string;
   institutionName?: string | null;
@@ -19,6 +31,7 @@ type Tx = {
   name: string;
   amount: number;
   date: string;
+  pending?: boolean;
 };
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL as string });
@@ -27,6 +40,15 @@ export default function Dashboard() {
   const { getAccessTokenSilently, user } = useAuth0();
   const [items, setItems] = useState<ItemWithAccounts[]>([]);
   const [transactions, setTransactions] = useState<Tx[]>([]);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const pageSize = 15;
+
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
+  const [queryText, setQueryText] = useState<string>('');
+  const [pendingOnly, setPendingOnly] = useState<boolean>(false);
+  const [flow, setFlow] = useState<'all' | 'credits' | 'debits'>('all');
 
   const authGet = useCallback(async (url: string) => {
     const token = await getAccessTokenSilently();
@@ -38,24 +60,65 @@ export default function Dashboard() {
     return api.post(url, body, { headers: { Authorization: `Bearer ${token}` } });
   }, [getAccessTokenSilently]);
 
-  const createLink = useCallback(async () => {
-    alert('Use the Plaid Link sandbox widget. If not loaded, populate public_token manually via backend during the workshop.');
-  }, [authPost]);
-
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (opts?: { start?: string; end?: string; accountIds?: string[] }) => {
     const itemsResp = await authGet('/plaid/accounts');
     setItems(itemsResp.data);
     const now = new Date();
-    const end = now.toISOString().slice(0, 10);
-    const startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-    const start = startDate.toISOString().slice(0, 10);
-    const txResp = await authGet(`/plaid/transactions?start=${start}&end=${end}`);
+    const defaultEnd = now.toISOString().slice(0, 10);
+    const startDateObj = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+    const defaultStart = startDateObj.toISOString().slice(0, 10);
+    const s = opts?.start || startDate || defaultStart;
+    const e = opts?.end || endDate || defaultEnd;
+    const ids = opts?.accountIds || selectedAccountIds;
+    const params = new URLSearchParams({ start: s, end: e });
+    if (ids && ids.length) params.set('account_ids', ids.join(','));
+    const txResp = await authGet(`/plaid/transactions?${params.toString()}`);
     setTransactions(txResp.data.transactions || []);
-  }, [authGet]);
+    setStartDate(s);
+    setEndDate(e);
+  }, [authGet, startDate, endDate, selectedAccountIds]);
+
+
+  const resetFilters = useCallback(() => {
+    setSelectedAccountIds([]);
+    setStartDate('');
+    setEndDate('');
+    setQueryText('');
+    setPendingOnly(false);
+    setFlow('all');
+  }, []);
+
+  const createLink = useCallback(async () => {
+    const token = await getAccessTokenSilently();
+    const { data } = await api.post('/plaid/link/token/create', {}, { headers: { Authorization: `Bearer ${token}` } });
+    const linkToken = data.link_token as string;
+
+    // Ensure Plaid script is loaded
+    const win = window as any;
+    if (!win.Plaid || !win.Plaid.create) {
+      alert('Plaid Link failed to load');
+      return;
+    }
+
+    const handler = win.Plaid.create({
+      token: linkToken,
+      onSuccess: async (public_token: string, metadata: { institution?: { name?: string } }) => {
+        const institution_name = metadata?.institution?.name;
+        await authPost('/plaid/item/public_token/exchange', { public_token, institution_name });
+        await refresh();
+      },
+      onExit: () => {},
+    });
+    handler.open();
+  }, [authPost, getAccessTokenSilently, refresh]);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [transactions]);
 
   const monthSums = useMemo(() => {
     const thisMonth = new Date().toISOString().slice(0, 7);
@@ -88,6 +151,48 @@ export default function Dashboard() {
   const totalAccounts = useMemo(() => {
     return items.reduce((sum, it) => sum + it.accounts.length, 0);
   }, [items]);
+
+  const filteredTransactions = useMemo(() => {
+    let list = transactions;
+    if (queryText.trim()) {
+      const q = queryText.trim().toLowerCase();
+      list = list.filter(t => t.name.toLowerCase().includes(q));
+    }
+    if (pendingOnly) {
+      list = list.filter(t => t.pending);
+    }
+    if (flow === 'credits') list = list.filter(t => t.amount < 0);
+    if (flow === 'debits') list = list.filter(t => t.amount > 0);
+    if (selectedAccountIds.length) list = list.filter(t => selectedAccountIds.includes(t.account_id));
+    return list;
+  }, [transactions, queryText, pendingOnly, flow, selectedAccountIds]);
+
+  const totalPages = useMemo(() => {
+    return Math.max(1, Math.ceil(filteredTransactions.length / pageSize));
+  }, [filteredTransactions.length]);
+
+  const visibleTransactions = useMemo(() => {
+    const startIdx = (currentPage - 1) * pageSize;
+    return filteredTransactions.slice(startIdx, startIdx + pageSize);
+  }, [filteredTransactions, currentPage]);
+
+  const pageNumbers = useMemo(() => {
+    const pages: Array<number | string> = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+      return pages;
+    }
+    if (currentPage <= 4) {
+      pages.push(1, 2, 3, 4, 5, '...', totalPages);
+      return pages;
+    }
+    if (currentPage >= totalPages - 3) {
+      pages.push(1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+      return pages;
+    }
+    pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+    return pages;
+  }, [totalPages, currentPage]);
 
   return (
     <div className="space-y-6">
@@ -123,7 +228,7 @@ export default function Dashboard() {
                     <div className="font-medium">{a.name}</div>
                     <div className="text-sm text-gray-600">{a.type}</div>
                   </div>
-                    <div className="font-semibold">${a.balance.toFixed(2)}</div>
+                    <div className="font-semibold">${a?.balance}</div>
                 </div>
               ))}
             </div>
@@ -133,19 +238,104 @@ export default function Dashboard() {
 
       <div className="border rounded p-4">
         <div className="font-medium mb-2">Recent Transactions</div>
+        <div className="mb-3 grid grid-cols-1 md:grid-cols-6 gap-2 items-end">
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Start</label>
+            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full border rounded px-2 py-1" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">End</label>
+            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full border rounded px-2 py-1" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Accounts</label>
+            <select multiple value={selectedAccountIds} onChange={(e) => setSelectedAccountIds(Array.from(e.target.selectedOptions).map(o => o.value))} className="w-full border rounded px-2 py-1 h-[34px] md:h-[60px]">
+              {items.flatMap(i => i.accounts).map(a => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Search text</label>
+            <input type="text" value={queryText} onChange={(e) => setQueryText(e.target.value)} placeholder="Contains..." className="w-full border rounded px-2 py-1" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Credits vs Debits</label>
+            <select value={flow} onChange={(e) => setFlow(e.target.value as any)} className="w-full border rounded px-2 py-1">
+              <option value="all">All</option>
+              <option value="credits">Credits (money in)</option>
+              <option value="debits">Debits (money out)</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="inline-flex items-center gap-2 text-xs text-gray-700">
+              <input type="checkbox" checked={pendingOnly} onChange={(e) => setPendingOnly(e.target.checked)} />
+              Pending only
+            </label>
+            <button className="ml-auto px-3 py-2 bg-black text-white rounded" onClick={() => {
+              setCurrentPage(1);
+              const ids = selectedAccountIds.length ? selectedAccountIds : [];
+              refresh({ start: startDate, end: endDate, accountIds: ids });
+            }}>Apply</button>
+            <button className="px-3 py-1 text-xs border rounded text-gray-600 hover:bg-gray-50" onClick={() => {
+              resetFilters();
+            }}>Reset</button>
+          </div>
+        </div>
         {transactions.length === 0 ? (
           <div className="text-sm text-gray-600">No transactions to display.</div>
         ) : (
-          <div className="space-y-2">
-            {transactions.slice(0, 15).map((t, idx) => (
-              <div key={idx} className="flex justify-between border-b py-2">
-                <div>{t.name}</div>
-                <div className={t.amount < 0 ? 'text-green-600' : 'text-red-600'}>
-                  {t.amount < 0 ? '+' : '-'}${Math.abs(t.amount).toFixed(2)}
+          <>
+            <div className="space-y-2">
+              {visibleTransactions.map((t, idx) => (
+                <div key={`${currentPage}-${idx}`} className="flex justify-between border-b py-2">
+                  <div className="flex flex-row gap-2 items-center">
+                    <div className="text-xs text-gray-600">{t.date}</div>
+                    <div className="text-sm font-medium">{t.name}</div>
+                  </div>
+                  <div className={t.amount < 0 ? 'text-green-600' : 'text-red-600'}>
+                    {t.amount < 0 ? '+' : '-'}${Math.abs(t.amount).toFixed(2)}
+                  </div>
                 </div>
+              ))}
+            </div>
+
+            <div className="mt-4 flex items-center justify-between">
+              <button
+                className="px-3 py-1 border rounded disabled:opacity-50"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                aria-label="Previous page"
+              >
+                ←
+              </button>
+
+              <div className="flex items-center gap-1">
+                {pageNumbers.map((p, i) => (
+                  typeof p === 'number' ? (
+                    <button
+                      key={`p-${p}-${i}`}
+                      className={`px-2 py-1 rounded ${p === currentPage ? 'bg-black text-white' : 'border'}`}
+                      onClick={() => setCurrentPage(p)}
+                    >
+                      {p}
+                    </button>
+                  ) : (
+                    <span key={`el-${i}`} className="px-2 text-gray-500">{p}</span>
+                  )
+                ))}
               </div>
-            ))}
-          </div>
+
+              <button
+                className="px-3 py-1 border rounded disabled:opacity-50"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                aria-label="Next page"
+              >
+                →
+              </button>
+            </div>
+          </>
         )}
       </div>
     </div>

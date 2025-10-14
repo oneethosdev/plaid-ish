@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { PlaidClient } from '../plaid/PlaidClient';
-import { addAccountsForItem, createPlaidItem, getItemsWithAccountsForUser } from '../db/csvDb';
+import { addAccountsForItem, createPlaidItem, getItemsWithAccountsForUser, getItemsWithAccessTokens } from '../db/csvDb';
 
 const router = Router();
 const plaid = new PlaidClient();
@@ -45,15 +45,18 @@ router.get('/accounts', async (req, res, next) => {
 router.get('/transactions', async (req, res, next) => {
   try {
     const user = (req as any).userRecord as { id: string };
-    const { start, end } = req.query as { start?: string; end?: string };
-    const items = await getItemsWithAccountsForUser(user.id);
+    const { start, end, account_ids } = req.query as { start?: string; end?: string; account_ids?: string };
+    const items = await getItemsWithAccessTokens(user.id);
     const allTxs: any[] = [];
     for (const item of items) {
-      // We don't store transactions; fetch from Plaid and map accounts by plaidAccountId
-      // Need access token; since not stored here, we need to load it—extend getItemsWithAccountsForUser if needed.
-      // For simplicity in CSV mode, skip transactions fetch when no access token available.
-      // This route will be supplemented as needed in the workshop.
-      continue;
+      if (!start || !end) continue;
+      const resp = await plaid.getTransactions(item.accessToken, start, end);
+      let txs = resp.transactions;
+      if (account_ids) {
+        const ids = account_ids.split(',');
+        txs = txs.filter(t => ids.includes(t.account_id));
+      }
+      allTxs.push(...txs);
     }
     res.json({ transactions: allTxs });
   } catch (err) {

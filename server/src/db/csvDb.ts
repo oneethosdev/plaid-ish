@@ -147,6 +147,11 @@ export async function getItemsWithAccountsForUser(userId: string): Promise<Array
   }));
 }
 
+export async function getItemsWithAccessTokens(userId: string): Promise<Array<{ id: string; accessToken: string }>> {
+  const items = await readAll('items');
+  return (items.filter(i => i.userId === userId) as Array<{ id: string; accessToken: string }>);
+}
+
 export async function appendWebhookLog(type: string, body: any): Promise<void> {
   await appendRow('webhookLogs', { id: uuid(), type, body: JSON.stringify(body), timestamp: new Date().toISOString() });
 }

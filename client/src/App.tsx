@@ -5,6 +5,8 @@ import Dashboard from './components/Dashboard';
 export default function App() {
   const { isAuthenticated, loginWithRedirect, logout, error } = useAuth0();
 
+  console.log('isAuthenticated', isAuthenticated);
+
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center">

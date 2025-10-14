@@ -1,1 +1,3 @@
 id,itemId,plaidAccountId,name,type,balance,available
+"f9d893ed-1143-4092-9f42-feb67deb27f0","26d42b8f-15a3-40b2-8625-66fadef6297e","nrq6X5Gpyot1mn6wz1rEfEkGzxN9r4sZ479zJ","Plaid Checking","depository","110","100"
+"457154b4-2c38-421e-8edb-0ba1aa650643","26d42b8f-15a3-40b2-8625-66fadef6297e","bMbRaxG3L4iovw3DBo7zcKdxmrAWvyhEe9nWP","Plaid Saving","depository","210","200"
