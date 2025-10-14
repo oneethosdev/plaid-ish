@@ -43,7 +43,7 @@ export default function Dashboard() {
   const [items, setItems] = useState<ItemWithAccounts[]>([]);
   const [transactions, setTransactions] = useState<Tx[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const pageSize = 15;
+  const PAGE_SIZE = 10;
 
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
@@ -187,12 +187,12 @@ export default function Dashboard() {
   }, [transactions, queryText, pendingOnly, flow, selectedAccountId]);
 
   const totalPages = useMemo(() => {
-    return Math.max(1, Math.ceil(filteredTransactions.length / pageSize));
+    return Math.max(1, Math.ceil(filteredTransactions.length / PAGE_SIZE));
   }, [filteredTransactions.length]);
 
   const visibleTransactions = useMemo(() => {
-    const startIdx = (currentPage - 1) * pageSize;
-    return filteredTransactions.slice(startIdx, startIdx + pageSize);
+    const startIdx = (currentPage - 1) * PAGE_SIZE;
+    return filteredTransactions.slice(startIdx, startIdx + PAGE_SIZE);
   }, [filteredTransactions, currentPage]);
 
   const pageNumbers = useMemo(() => {
@@ -215,11 +215,13 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {/** Greeting Header */}
       <div className="flex items-center justify-between">
         <div className="text-xl font-medium">{greeting}, {displayName}</div>
         <button className="px-3 py-2 btn-primary" onClick={createLink}>Connect Bank</button>
       </div>
 
+      {/** Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="card p-4 md:col-span-1">
           <div className="font-medium mb-2 text-primary-700">Total Balance</div>
@@ -239,6 +241,7 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/** Accounts List */}
       <div className="card p-4">
         <div className="font-medium mb-2 text-primary-700">Accounts</div>
         {totalAccounts === 0 ? (
@@ -285,6 +288,7 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/** Recent Transactions */}
       <div className="card p-4">
         <div className="font-medium mb-2 text-primary-700">Recent Transactions</div>
         <div className="mb-3 grid grid-cols-1 md:grid-cols-6 gap-2 items-end">
@@ -337,7 +341,7 @@ export default function Dashboard() {
           <>
             <div className="space-y-2">
               {visibleTransactions.map((t, idx) => (
-                <div key={`${currentPage}-${idx}`} className="flex justify-between border-b py-2">
+                <div key={`${currentPage}-${idx}`} className="flex justify-between border-b py-2 hover:bg-primary-100 px-2">
                   <div className="flex flex-row gap-2 items-center">
                     <div className="text-xs text-gray-600">{t.date}</div>
                     {t.logo_url ? (
