@@ -39,6 +39,14 @@ type Tx = {
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL as string });
 
+function formatCurrency(amount: number, options?: { includePlus?: boolean; absolute?: boolean }): string {
+  const normalized = Number.isFinite(amount) ? amount : 0;
+  const value = options?.absolute ? Math.abs(normalized) : normalized;
+  const sign = value < 0 ? '-' : (options?.includePlus && value > 0 ? '+' : '');
+  const abs = Math.abs(value);
+  return `${sign}$${abs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 export default function Dashboard() {
   const { getAccessTokenSilently, user } = useAuth0();
   const [items, setItems] = useState<ItemWithAccounts[]>([]);
@@ -254,18 +262,18 @@ export default function Dashboard() {
         <div className="card p-4 md:col-span-1">
           <div className="font-medium mb-2 text-primary-700">Total Balance</div>
           <div className={`text-2xl font-semibold ${totalBalanceAllInstitutions >= 0 ? 'text-primary-700' : 'text-red-600'}`}>
-            ${Math.abs(totalBalanceAllInstitutions).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {formatCurrency(totalBalanceAllInstitutions, { absolute: true })}
           </div>
         </div>
         <div className="card p-4 md:col-span-1">
           <div className="font-medium mb-2 text-primary-700">This Month’s Breakdown</div>
-          <div>Money In: ${summary.thisIn.toFixed(2)}</div>
-          <div>Money Out: ${summary.thisOut.toFixed(2)}</div>
+          <div>Money In: {formatCurrency(summary.thisIn)}</div>
+          <div>Money Out: {formatCurrency(summary.thisOut)}</div>
         </div>
         <div className="card p-4 md:col-span-1">
           <div className="font-medium mb-2 text-primary-700">Last Month’s Breakdown</div>
-          <div>Money In: ${summary.lastIn.toFixed(2)}</div>
-          <div>Money Out: ${summary.lastOut.toFixed(2)}</div>
+          <div>Money In: {formatCurrency(summary.lastIn)}</div>
+          <div>Money Out: {formatCurrency(summary.lastOut)}</div>
         </div>
       </div>
 
@@ -284,8 +292,16 @@ export default function Dashboard() {
                 <div className={it.hasError ? 'text-red-600' : undefined}>
                   {(() => {
                     const instTotal = it.accounts.reduce((acc, a) => acc + computeAccountSignedBalance(a.type, Number(a.balance) || 0), 0);
-                    const formatted = `${instTotal < 0 ? '-' : ''}$${Math.abs(instTotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                    return `${it.institutionName || 'Institution'} - ${formatted}`;
+                    const isNegative = instTotal < 0;
+                    return (
+                      <span>
+                        {(it.institutionName || 'Institution')} {'( '}
+                        <span className={isNegative ? 'text-red-600' : 'text-primary-700'}>
+                          {formatCurrency(instTotal)}
+                        </span>
+                        {' )'}
+                      </span>
+                    );
                   })()}
                 </div>
                 <div className="relative">
@@ -325,10 +341,10 @@ export default function Dashboard() {
                         </div>
                         <div className="text-right">
                           <div className={`font-semibold ${isNegative ? 'text-red-600' : 'text-primary-700'}`}>
-                            {isNegative ? '-' : ''}${Math.abs(signed).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            {formatCurrency(signed)}
                           </div>
                           {a.available !== undefined && a.available !== null && (
-                            <div className="text-xs text-gray-500">Avail: ${Number(a.available || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                            <div className="text-xs text-gray-500">Avail: {formatCurrency(Number(a.available || 0))}</div>
                           )}
                         </div>
                       </div>
@@ -405,7 +421,7 @@ export default function Dashboard() {
                     <div className="text-sm font-medium">{t.name}</div>
                   </div>
                   <div className={t.amount < 0 ? 'text-green-600' : 'text-red-600'}>
-                    {t.amount < 0 ? '+' : '-'}${Math.abs(t.amount).toFixed(2)}
+                    {formatCurrency(-t.amount, { includePlus: true })}
                   </div>
                 </div>
               ))}
