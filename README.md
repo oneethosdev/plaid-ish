@@ -146,3 +146,21 @@ This workshop will be a walkthrough of a reference design. The focus is on how t
     - I made a simple set of scripts for production credentials so command is `npm run prod`
   - Client: `cd client && npm run dev` → http://localhost:3000
 - Health check: `GET /health` → `{ ok: true }`
+
+
+### OPTIONAL EXTRA LEARNING
+- Error States
+  - https://plaid.com/docs/api/items/#error
+- Re-Linking Accounts
+  - https://plaid.com/docs/link/update-mode/
+- Webhooks
+  - https://plaid.com/docs/api/webhooks/#configuring-webhooks
+  - NOTE: To use Plaid webhooks, a public url accessible from third-party machines via the web is necessary
+  - My go-to for enabling this is [ngrok](https://ngrok.com/)
+    - creates a custom public url accessible via HTTPS
+- Mobile
+  - https://github.com/plaid/react-native-plaid-link-sdk
+- Unlinking Accounts
+  - https://plaid.com/docs/api/items/#remove-an-item
+- Extra Functionality
+  - https://plaid.com/docs/
