@@ -18,9 +18,61 @@ This workshop will be a walkthrough of a reference design. The focus is on how t
   - Auth middleware with Auth0 JWT validation, then enriches the request with a `userRecord`.
   - Routes for Plaid flows and webhook ingestion.
   - CSV‑backed persistence for users, items, accounts, transactions, and webhook logs. ( yes, yes, I know not a real DB but we all have our opinions on DB providers so this felt like the safest bet lol )
-- Plaid
-  - Link token creation, public token exchange, accounts, and transactions
-  - Webhook endpoint wired for logging and further processing.
+
+### Architecture Overview
+
+
+#### 1) Initialize Plaid Link Session
+![Initializing Link Session](./shared/images/Step1.png)
+
+- **What happens**: Client asks Server for a Link token → Server creates a token with Plaid → returns token → Client opens Link.
+- **Code to explore/implement live**:
+  - Server route: `server/src/routes/plaid.ts` → `POST /plaid/link/token/create`
+  - Plaid wrapper: `server/src/plaid/PlaidClient.ts` → `createLinkToken`
+  - Client: `client/src/components/Dashboard.tsx` → `createLink`
+- **Docs**:
+  - Link token flow: https://plaid.com/docs/link/token-flow/
+  - API: https://plaid.com/docs/api/tokens/#linktokencreate
+  - Link Web SDK: https://plaid.com/docs/link/web/
+
+#### 2) Exchange Public Token for Access Token
+![Exchanging Public Token](./shared/images/Step2.png)
+
+- **What happens**: After Link success the client receives a `public_token` → Server exchanges it with Plaid for an `access_token` → Server stores token for the user.
+- **Code to explore/implement live**:
+  - Server route: `server/src/routes/plaid.ts` → `POST /plaid/item/public_token/exchange`
+  - Plaid wrapper: `server/src/plaid/PlaidClient.ts` → `exchangePublicToken`
+  - Persistence: `server/src/db/csvDb.ts` → `createPlaidItem`
+- **Docs**:
+  - API: https://plaid.com/docs/api/tokens/#itempublic_tokenexchange
+
+#### 3) Fetch Accounts and Transactions
+![Fetching Plaid Data](./shared/images/Step3.png)
+
+- **What happens**: Client requests accounts/transactions → Server looks up the user’s `access_token` → Server calls Plaid and returns mapped data to the client.
+- **Code to explore/implement live**:
+  - Server routes: `GET /plaid/accounts`, `GET /plaid/transactions`, `GET /plaid/summary` in `server/src/routes/plaid.ts`
+  - Plaid wrapper: `server/src/plaid/PlaidClient.ts` → `getItem`, `getAccounts`, `getTransactions`
+  - Client data load: `client/src/components/Dashboard.tsx` → `refresh`
+- **Docs**:
+  - Accounts Get: https://plaid.com/docs/api/accounts/#accountsget
+  - Transactions Get: https://plaid.com/docs/api/products/transactions/#transactionsget
+  - Item Get: https://plaid.com/docs/api/items/#itemget
+
+
+### Environment Variables
+- Frontend
+  - VITE_API_BASE_URL
+    - API Route to prepend to requests
+  - VITE_AUTH0_DOMAIN
+  - VITE_AUTH0_CLIENT_ID
+  - VITE_AUTH0_AUDIENCE
+- Backend
+  - PLAID_BASE_URL
+  - PLAID_CLIENT_ID
+  - PLAID_SECRET
+  - AUTH0_DOMAIN
+  - AUTH0_AUDIENCE
 
 ### Request and auth flow
 1. User logs in on the client using Auth0.
@@ -91,7 +143,6 @@ This workshop will be a walkthrough of a reference design. The focus is on how t
   - `cd ../client && npm install`
 - Start:
   - Server: `cd server && npm run dev` → http://localhost:4000
+    - I made a simple set of scripts for production credentials so command is `npm run prod`
   - Client: `cd client && npm run dev` → http://localhost:3000
 - Health check: `GET /health` → `{ ok: true }`
-
-
