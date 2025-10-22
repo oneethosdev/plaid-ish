@@ -74,14 +74,24 @@ export default function Dashboard() {
   }, [getAccessTokenSilently]);
 
   const refresh = useCallback(async (opts?: { start?: string; end?: string; accountId?: string }) => {
-    const itemsResp = await authGet('/plaid/accounts');
-    setItems(itemsResp.data);
-    console.log('itemsResp', itemsResp.data);
+    // Handle workshop 501 responses gracefully so the UI still renders with guidance
+    try {
+      const itemsResp = await authGet('/plaid/accounts');
+      setItems(itemsResp.data);
+    } catch (e: any) {
+      if (e?.response?.status === 501) {
+        // When server is in workshop mode, show empty items and keep going
+        setItems([]);
+      } else {
+        throw e;
+      }
+    }
     // Fetch monthly summary separately from transactions
     try {
       const summaryResp = await authGet('/plaid/summary');
       setSummary(summaryResp.data || { thisIn: 0, thisOut: 0, lastIn: 0, lastOut: 0 });
-    } catch (_e) {
+    } catch (e: any) {
+      // If not implemented yet, fallback to zeros
       setSummary({ thisIn: 0, thisOut: 0, lastIn: 0, lastOut: 0 });
     }
     const now = new Date();
@@ -93,8 +103,16 @@ export default function Dashboard() {
     const id = opts?.accountId ?? selectedAccountId;
     const params = new URLSearchParams({ start: s, end: e });
     if (id) params.set('account_ids', id);
-    const txResp = await authGet(`/plaid/transactions?${params.toString()}`);
-    setTransactions(txResp.data.transactions || []);
+    try {
+      const txResp = await authGet(`/plaid/transactions?${params.toString()}`);
+      setTransactions(txResp.data.transactions || []);
+    } catch (e: any) {
+      if (e?.response?.status === 501) {
+        setTransactions([]);
+      } else {
+        throw e;
+      }
+    }
     setStartDate(s);
     setEndDate(e);
   }, [authGet, startDate, endDate, selectedAccountId]);
@@ -110,27 +128,18 @@ export default function Dashboard() {
   }, []);
 
   const createLink = useCallback(async () => {
-    const token = await getAccessTokenSilently();
-    const { data } = await api.post('/plaid/link/token/create', {}, { headers: { Authorization: `Bearer ${token}` } });
-    const linkToken = data.link_token as string;
-
-    // Ensure Plaid script is loaded
-    const win = window as any;
-    if (!win.Plaid || !win.Plaid.create) {
-      alert('Plaid Link failed to load');
-      return;
-    }
-
-    const handler = win.Plaid.create({
-      token: linkToken,
-      onSuccess: async (public_token: string, metadata: { institution?: { name?: string } }) => {
-        const institution_name = metadata?.institution?.name;
-        await authPost('/plaid/item/public_token/exchange', { public_token, institution_name });
-        await refresh();
-      },
-      onExit: () => {},
-    });
-    handler.open();
+    // WORKSHOP TODO (Steps 1 & 2): Initialize Link and exchange public_token
+    // Steps to implement live:
+    // 1) Request link token from POST /plaid/link/token/create
+    // 2) Load Plaid Link (window.Plaid.create) with the link_token
+    // 3) In onSuccess, POST public_token to /plaid/item/public_token/exchange
+    // 4) Refresh data
+    // Docs:
+    // - Link Web SDK: https://plaid.com/docs/link/web/
+    // - Create link token: https://plaid.com/docs/link/token-flow/#create-link-token
+    // - Exchange public token: https://plaid.com/docs/api/tokens/#itempublic_tokenexchange
+    // Hint: You have win.Plaid.create to make use of the linkToken returned from the server.
+    alert('WORKSHOP_TODO: Implement createLink() to open Plaid Link and exchange public_token. See comments for steps and docs.');
   }, [authPost, getAccessTokenSilently, refresh]);
 
   const unlinkItem = useCallback(async (itemId: string) => {

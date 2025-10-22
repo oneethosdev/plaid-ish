@@ -19,15 +19,18 @@ export class PlaidClient {
   }
 
   async createLinkToken({ userId }: CreateLinkTokenParams) {
-    const { data } = await this.http.post('/link/token/create', this.authBody({
-      user: { client_user_id: userId },
-      client_name: 'Plaid-ish',
-      products: ['transactions'],
-      country_codes: ['US'],
-      language: 'en',
-      webhook: env.plaid.webhookUrl,
-    }));
-    return data as { link_token: string; expiration: string };
+    // WORKSHOP TODO (Step 1: Initializing Link Session)
+    // Goal: Create a Link Token for the current user and return it to the client
+    // Steps:
+    // 1) Build request body per Plaid docs with at minimum:
+    //    user.client_user_id, client_name, products, country_codes, language, optional webhook
+    // 2) POST to /link/token/create with client_id and secret
+    // 3) Return { link_token, expiration }
+    // Docs:
+    // - Creating Link Token: https://plaid.com/docs/link/token-flow/#create-link-token
+    // - API Reference: https://plaid.com/docs/api/tokens/#linktokencreate
+    // Tip: Use this.http.post('/link/token/create', this.authBody(body))
+    throw new Error('WORKSHOP_TODO: Implement createLinkToken() per Plaid docs');
   }
 
   async createUpdateModeLinkToken({ userId, accessToken }: { userId: string; accessToken: string }) {
@@ -43,18 +46,25 @@ export class PlaidClient {
   }
 
   async exchangePublicToken(publicToken: string) {
-    const { data } = await this.http.post('/item/public_token/exchange', this.authBody({
-      public_token: publicToken,
-    }));
-    return data as { access_token: string; item_id: string };
+    // WORKSHOP TODO (Step 2: Exchanging Public Token)
+    // Goal: Exchange the public_token returned from Link for a permanent access_token
+    // Steps:
+    // 1) Build body with public_token
+    // 2) POST to /item/public_token/exchange with client_id and secret
+    // 3) Return { access_token, item_id }
+    // Docs: https://plaid.com/docs/api/tokens/#itempublic_tokenexchange
+    throw new Error('WORKSHOP_TODO: Implement exchangePublicToken() per Plaid docs');
   }
 
   async getAccounts(accessToken: string, options?: { account_ids?: string[] }) {
-    const { data } = await this.http.post('/accounts/get', this.authBody({
-      access_token: accessToken,
-      options: options || undefined,
-    }));
-    return data as { accounts: any[]; item: any; request_id: string };
+    // WORKSHOP TODO (Step 3: Fetching Plaid Data)
+    // Goal: Retrieve accounts for a user's Item using the access_token
+    // Steps:
+    // 1) Build body with access_token and optional options.account_ids
+    // 2) POST to /accounts/get
+    // 3) Return the accounts list
+    // Docs: https://plaid.com/docs/api/accounts/#accountsget
+    throw new Error('WORKSHOP_TODO: Implement getAccounts() per Plaid docs');
   }
 
   async getTransactions(
@@ -69,13 +79,14 @@ export class PlaidClient {
       include_original_description?: boolean;
     }
   ) {
-    const { data } = await this.http.post('/transactions/get', this.authBody({
-      access_token: accessToken,
-      start_date: startDate,
-      end_date: endDate,
-      options: options || undefined,
-    }));
-    return data as { transactions: any[]; accounts: any[]; total_transactions: number };
+    // WORKSHOP TODO (Step 3: Fetching Plaid Data)
+    // Goal: Retrieve transactions for a date range and optional filters
+    // Steps:
+    // 1) Build body with access_token, start_date, end_date, and optional options
+    // 2) POST to /transactions/get
+    // 3) Return transactions data
+    // Docs: https://plaid.com/docs/api/products/transactions/#transactionsget
+    throw new Error('WORKSHOP_TODO: Implement getTransactions() per Plaid docs');
   }
 
   async syncTransactions(accessToken: string, cursor?: string) {
@@ -108,10 +119,12 @@ export class PlaidClient {
   }
 
   async getItem(accessToken: string) {
-    const { data } = await this.http.post('/item/get', this.authBody({
-      access_token: accessToken,
-    }));
-    return data as { item: any; status?: any };
+    // WORKSHOP TODO (Step 3 helper)
+    // Goal: Retrieve Item status (useful to detect login_required or other errors)
+    // Steps:
+    // 1) POST to /item/get with access_token
+    // Docs: https://plaid.com/docs/api/items/#itemget
+    throw new Error('WORKSHOP_TODO: Implement getItem() per Plaid docs');
   }
 
   async sandboxResetLogin(accessToken: string) {

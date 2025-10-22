@@ -9,9 +9,18 @@ const plaid = new PlaidClient();
 
 router.post('/link/token/create', async (req, res, next) => {
   try {
-    const user = (req as any).userRecord as { id: string };
-    const data = await plaid.createLinkToken({ userId: user.id });
-    res.json(data);
+    // WORKSHOP TODO (Step 1: Initializing Link Session)
+    // Replace this 501 response by implementing:
+    // 1) Read the authenticated user id from req.userRecord
+    // 2) Call plaid.createLinkToken({ userId }) which should POST to /link/token/create
+    // 3) Return the link token payload to the client
+    // Docs:
+    // - Link token flow overview: https://plaid.com/docs/link/token-flow/
+    // - API reference: https://plaid.com/docs/api/tokens/#linktokencreate
+    return res.status(501).json({
+      error: 'WORKSHOP_TODO',
+      message: 'Implement /plaid/link/token/create to return a Plaid Link token. See server comments.'
+    });
   } catch (err) {
     next(err);
   }
@@ -19,11 +28,17 @@ router.post('/link/token/create', async (req, res, next) => {
 
 router.post('/item/public_token/exchange', async (req, res, next) => {
   try {
-    const user = (req as any).userRecord as { id: string };
-    const { public_token, institution_name } = req.body as { public_token: string; institution_name?: string };
-    const { access_token } = await plaid.exchangePublicToken(public_token);
-    const item = await createPlaidItem(user.id, access_token, institution_name);
-    res.json({ itemId: item.id });
+    // WORKSHOP TODO (Step 2: Exchanging Public Token)
+    // Replace this 501 response by implementing:
+    // 1) Read the public_token (and optional institution_name) from req.body
+    // 2) Call plaid.exchangePublicToken(public_token) to get { access_token, item_id }
+    // 3) Persist the access_token for this user using createPlaidItem(userId, access_token, institution_name)
+    // 4) Return a success payload
+    // Docs: https://plaid.com/docs/api/tokens/#itempublic_tokenexchange
+    return res.status(501).json({
+      error: 'WORKSHOP_TODO',
+      message: 'Implement public_token exchange and save access_token.'
+    });
   } catch (err) {
     next(err);
   }
@@ -31,30 +46,15 @@ router.post('/item/public_token/exchange', async (req, res, next) => {
 
 router.get('/accounts', async (req, res, next) => {
   try {
-    const user = (req as any).userRecord as { id: string };
-    const items = await getItemsWithAccessTokensAndNames(user.id);
-    const enriched = await Promise.all(items.map(async (it) => {
-      try {
-        const statusResp = await plaid.getItem(it.accessToken);
-        const hasError = Boolean(statusResp?.item?.error);
-        if (hasError) {
-          return { id: it.id, institutionName: it.institutionName, accounts: [], hasError };
-        }
-        const accountsResp = await plaid.getAccounts(it.accessToken);
-        const accounts = (accountsResp.accounts || []).map((a: any) => ({
-          id: a.account_id,
-          plaidAccountId: a.account_id,
-          name: a.name || a.official_name || 'Account',
-          type: a.type,
-          balance: a.balances.current ?? 0,
-          available: a.balances.available ?? null,
-        }));
-        return { id: it.id, institutionName: it.institutionName, accounts, hasError };
-      } catch (_e) {
-        return { id: it.id, institutionName: it.institutionName, accounts: [], hasError: true };
-      }
-    }));
-    res.json(enriched);
+    // WORKSHOP TODO (Step 3: Fetching Plaid Data — Accounts)
+    // Replace this 501 response by implementing:
+    // 1) Fetch Items with access tokens for the user via getItemsWithAccessTokensAndNames(userId)
+    // 2) For each Item, call plaid.getItem(accessToken) to detect errors
+    // 3) If healthy, call plaid.getAccounts(accessToken) and map into UI-friendly shape
+    // Docs:
+    // - Accounts Get: https://plaid.com/docs/api/accounts/#accountsget
+    // - Item Get: https://plaid.com/docs/api/items/#itemget
+    return res.status(501).json({ error: 'WORKSHOP_TODO', message: 'Implement fetching accounts for user Items.' });
   } catch (err) {
     next(err);
   }
@@ -62,28 +62,13 @@ router.get('/accounts', async (req, res, next) => {
 
 router.get('/transactions', async (req, res, next) => {
   try {
-    const user = (req as any).userRecord as { id: string };
-    const { start, end, account_ids, count, offset, include_pfc, include_original_description } = req.query as {
-      start?: string; end?: string; account_ids?: string; count?: string; offset?: string; include_pfc?: string; include_original_description?: string;
-    };
-    const items = await getItemsWithAccessTokens(user.id);
-    const allTxs: any[] = [];
-    for (const item of items) {
-      if (!start || !end) continue;
-      const options: any = {};
-      if (account_ids) options.account_ids = account_ids.split(',');
-      if (count) options.count = parseInt(count, 10);
-      if (offset) options.offset = parseInt(offset, 10);
-      if (include_pfc) options.include_personal_finance_category = include_pfc === 'true';
-      if (include_original_description) options.include_original_description = include_original_description === 'true';
-      try {
-        const resp = await plaid.getTransactions(item.accessToken, start, end, options);
-        allTxs.push(...resp.transactions);
-      } catch (_e) {
-        console.error('Error getting transactions for item', item.id, _e);
-      }
-    }
-    res.json({ transactions: allTxs });
+    // WORKSHOP TODO (Step 3: Fetching Plaid Data — Transactions)
+    // Replace this 501 response by implementing:
+    // 1) Read query params start, end, and optional filters
+    // 2) For each user Item, call plaid.getTransactions(accessToken, start, end, options)
+    // 3) Aggregate and return a flat transactions array
+    // Docs: https://plaid.com/docs/api/products/transactions/#transactionsget
+    return res.status(501).json({ error: 'WORKSHOP_TODO', message: 'Implement fetching transactions across user Items.' });
   } catch (err) {
     next(err);
   }
@@ -91,39 +76,14 @@ router.get('/transactions', async (req, res, next) => {
 
 router.get('/summary', async (req, res, next) => {
   try {
-    const user = (req as any).userRecord as { id: string };
-    const items = await getItemsWithAccessTokens(user.id);
-
-    const now = new Date();
-    const thisStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-    const thisEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
-    const lastStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastEndDate = new Date(now.getFullYear(), now.getMonth(), 0);
-    const lastStart = lastStartDate.toISOString().slice(0, 10);
-    const lastEnd = lastEndDate.toISOString().slice(0, 10);
-
-    const sums = { thisIn: 0, thisOut: 0, lastIn: 0, lastOut: 0 } as { thisIn: number; thisOut: number; lastIn: number; lastOut: number };
-
-    for (const item of items) {
-      try {
-        const thisResp = await plaid.getTransactions(item.accessToken, thisStart, thisEnd);
-        for (const t of thisResp.transactions || []) {
-          if (t.amount < 0) sums.thisIn += Math.abs(t.amount); else sums.thisOut += t.amount;
-        }
-      } catch (_e) {
-        // ignore item errors for this aggregation
-      }
-      try {
-        const lastResp = await plaid.getTransactions(item.accessToken, lastStart, lastEnd);
-        for (const t of lastResp.transactions || []) {
-          if (t.amount < 0) sums.lastIn += Math.abs(t.amount); else sums.lastOut += t.amount;
-        }
-      } catch (_e) {
-        // ignore item errors for this aggregation
-      }
-    }
-
-    res.json(sums);
+    // WORKSHOP TODO (Step 3: Fetching Plaid Data — Aggregation)
+    // Replace this 501 response by implementing a simple monthly summary:
+    // 1) Compute date ranges for current and previous month
+    // 2) For each Item, call plaid.getTransactions for both ranges
+    // 3) Accumulate money in (negative amounts) and money out (positive amounts)
+    // Return shape: { thisIn, thisOut, lastIn, lastOut }
+    // Docs: https://plaid.com/docs/api/products/transactions/#transactionsget
+    return res.status(501).json({ error: 'WORKSHOP_TODO', message: 'Implement monthly summary using transactions.' });
   } catch (err) {
     next(err);
   }
