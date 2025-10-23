@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { PlaidClient } from '../plaid/PlaidClient';
-import { addAccountsForItem, createPlaidItem, getItemsWithAccountsForUser, getItemsWithAccessTokens, findItemById, deleteItemAndAccounts, getItemsWithAccessTokensAndNames } from '../db/csvDb';
+import { findItemById, deleteItemAndAccounts } from '../db/csvDb';
 
 const router = Router();
 const plaid = new PlaidClient();
@@ -14,9 +14,6 @@ router.post('/link/token/create', async (req, res, next) => {
     // 1) Read the authenticated user id from req.userRecord
     // 2) Call plaid.createLinkToken({ userId }) which should POST to /link/token/create
     // 3) Return the link token payload to the client
-    // Docs:
-    // - Link token flow overview: https://plaid.com/docs/link/token-flow/
-    // - API reference: https://plaid.com/docs/api/tokens/#linktokencreate
     return res.status(501).json({
       error: 'WORKSHOP_TODO',
       message: 'Implement /plaid/link/token/create to return a Plaid Link token. See server comments.'
@@ -34,7 +31,6 @@ router.post('/item/public_token/exchange', async (req, res, next) => {
     // 2) Call plaid.exchangePublicToken(public_token) to get { access_token, item_id }
     // 3) Persist the access_token for this user using createPlaidItem(userId, access_token, institution_name)
     // 4) Return a success payload
-    // Docs: https://plaid.com/docs/api/tokens/#itempublic_tokenexchange
     return res.status(501).json({
       error: 'WORKSHOP_TODO',
       message: 'Implement public_token exchange and save access_token.'
@@ -51,9 +47,6 @@ router.get('/accounts', async (req, res, next) => {
     // 1) Fetch Items with access tokens for the user via getItemsWithAccessTokensAndNames(userId)
     // 2) For each Item, call plaid.getItem(accessToken) to detect errors
     // 3) If healthy, call plaid.getAccounts(accessToken) and map into UI-friendly shape
-    // Docs:
-    // - Accounts Get: https://plaid.com/docs/api/accounts/#accountsget
-    // - Item Get: https://plaid.com/docs/api/items/#itemget
     return res.status(501).json({ error: 'WORKSHOP_TODO', message: 'Implement fetching accounts for user Items.' });
   } catch (err) {
     next(err);
@@ -67,7 +60,6 @@ router.get('/transactions', async (req, res, next) => {
     // 1) Read query params start, end, and optional filters
     // 2) For each user Item, call plaid.getTransactions(accessToken, start, end, options)
     // 3) Aggregate and return a flat transactions array
-    // Docs: https://plaid.com/docs/api/products/transactions/#transactionsget
     return res.status(501).json({ error: 'WORKSHOP_TODO', message: 'Implement fetching transactions across user Items.' });
   } catch (err) {
     next(err);
@@ -82,7 +74,6 @@ router.get('/summary', async (req, res, next) => {
     // 2) For each Item, call plaid.getTransactions for both ranges
     // 3) Accumulate money in (negative amounts) and money out (positive amounts)
     // Return shape: { thisIn, thisOut, lastIn, lastOut }
-    // Docs: https://plaid.com/docs/api/products/transactions/#transactionsget
     return res.status(501).json({ error: 'WORKSHOP_TODO', message: 'Implement monthly summary using transactions.' });
   } catch (err) {
     next(err);

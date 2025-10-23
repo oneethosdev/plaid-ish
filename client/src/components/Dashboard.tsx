@@ -131,14 +131,9 @@ export default function Dashboard() {
     // WORKSHOP TODO (Steps 1 & 2): Initialize Link and exchange public_token
     // Steps to implement live:
     // 1) Request link token from POST /plaid/link/token/create
-    // 2) Load Plaid Link (window.Plaid.create) with the link_token
-    // 3) In onSuccess, POST public_token to /plaid/item/public_token/exchange
-    // 4) Refresh data
-    // Docs:
-    // - Link Web SDK: https://plaid.com/docs/link/web/
-    // - Create link token: https://plaid.com/docs/link/token-flow/#create-link-token
-    // - Exchange public token: https://plaid.com/docs/api/tokens/#itempublic_tokenexchange
-    // Hint: You have win.Plaid.create to make use of the linkToken returned from the server.
+    // 2) Load Plaid Link (win.Plaid.create) with the link_token
+    //    In onSuccess, POST public_token to /plaid/item/public_token/exchange
+    // 3) Refresh data
     alert('WORKSHOP_TODO: Implement createLink() to open Plaid Link and exchange public_token. See comments for steps and docs.');
   }, [authPost, getAccessTokenSilently, refresh]);
 

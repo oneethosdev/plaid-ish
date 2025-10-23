@@ -14,34 +14,30 @@ export class PlaidClient {
     this.http = axios.create({ baseURL: env.plaid.baseUrl, timeout: 15000 });
   }
 
-  private authBody<T extends Record<string, any>>(body: T): T & { client_id: string; secret: string } {
-    return { ...body, client_id: this.clientId, secret: this.secret };
-  }
-
   async createLinkToken({ userId }: CreateLinkTokenParams) {
     // WORKSHOP TODO (Step 1: Initializing Link Session)
     // Goal: Create a Link Token for the current user and return it to the client
     // Steps:
     // 1) Build request body per Plaid docs with at minimum:
-    //    user.client_user_id, client_name, products, country_codes, language, optional webhook
+    //    user.client_user_id, client_name, products, country_codes, language, optional webhook, client_id, secret
     // 2) POST to /link/token/create with client_id and secret
     // 3) Return { link_token, expiration }
     // Docs:
-    // - Creating Link Token: https://plaid.com/docs/link/token-flow/#create-link-token
-    // - API Reference: https://plaid.com/docs/api/tokens/#linktokencreate
-    // Tip: Use this.http.post('/link/token/create', this.authBody(body))
+    // - API Reference: https://plaid.com/docs/api/link/#linktokencreate
     throw new Error('WORKSHOP_TODO: Implement createLinkToken() per Plaid docs');
   }
 
   async createUpdateModeLinkToken({ userId, accessToken }: { userId: string; accessToken: string }) {
-    const { data } = await this.http.post('/link/token/create', this.authBody({
+    const { data } = await this.http.post('/link/token/create', {
       user: { client_user_id: userId },
       client_name: 'Plaid-ish',
       country_codes: ['US'],
       language: 'en',
       webhook: env.plaid.webhookUrl,
       access_token: accessToken,
-    }));
+      client_id: this.clientId,
+      secret: this.secret,
+    });
     return data as { link_token: string; expiration: string };
   }
 
@@ -52,7 +48,7 @@ export class PlaidClient {
     // 1) Build body with public_token
     // 2) POST to /item/public_token/exchange with client_id and secret
     // 3) Return { access_token, item_id }
-    // Docs: https://plaid.com/docs/api/tokens/#itempublic_tokenexchange
+    // Docs: https://plaid.com/docs/api/items/#exchange-public-token-for-an-access-token
     throw new Error('WORKSHOP_TODO: Implement exchangePublicToken() per Plaid docs');
   }
 
@@ -89,32 +85,21 @@ export class PlaidClient {
     throw new Error('WORKSHOP_TODO: Implement getTransactions() per Plaid docs');
   }
 
-  async syncTransactions(accessToken: string, cursor?: string) {
-    const { data } = await this.http.post('/transactions/sync', this.authBody({
-      access_token: accessToken,
-      cursor,
-      count: 100
-    }));
-    return data as {
-      added: any[];
-      modified: any[];
-      removed: any[];
-      next_cursor: string;
-      has_more: boolean;
-    };
-  }
-
   async removeItem(accessToken: string) {
-    const { data } = await this.http.post('/item/remove', this.authBody({
+    const { data } = await this.http.post('/item/remove', {
       access_token: accessToken,
-    }));
+      client_id: this.clientId,
+      secret: this.secret,
+    });
     return data as { removed: boolean; request_id: string };
   }
 
   async invalidateAccessToken(accessToken: string) {
-    const { data } = await this.http.post('/item/access_token/invalidate', this.authBody({
+    const { data } = await this.http.post('/item/access_token/invalidate', {
       access_token: accessToken,
-    }));
+      client_id: this.clientId,
+      secret: this.secret,
+    });
     return data as { new_access_token: string; request_id: string };
   }
 
@@ -128,9 +113,11 @@ export class PlaidClient {
   }
 
   async sandboxResetLogin(accessToken: string) {
-    const { data } = await this.http.post('/sandbox/item/reset_login', this.authBody({
+    const { data } = await this.http.post('/sandbox/item/reset_login', {
       access_token: accessToken,
-    }));
+      client_id: this.clientId,
+      secret: this.secret,
+    });
     return data as { request_id: string };
   }
 }
